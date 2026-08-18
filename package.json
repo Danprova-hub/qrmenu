@@ -1,0 +1,13 @@
+{
+  "name": "qrmenu-mvp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MVP for dynamic QR codes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
