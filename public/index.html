@@ -1,1 +1,610 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRMenu</title>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f6f8;
+      color: #171717;
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 36px 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .badge {
+      background: #e8f7ee;
+      color: #16713b;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 5px 20px rgba(0,0,0,.04);
+    }
+
+    h1 {
+      font-size: 30px;
+      margin: 0 0 8px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 16px;
+    }
+
+    p {
+      color: #666;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 16px 0 7px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1px solid #d8dbe0;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: #111;
+      color: white;
+      width: 100%;
+      margin-top: 18px;
+    }
+
+    .secondary {
+      background: #f0f1f3;
+      color: #111;
+    }
+
+    .qrbox {
+      min-height: 330px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qrcode {
+      padding: 18px;
+      background: white;
+      border-radius: 12px;
+    }
+
+    .url {
+      width: 100%;
+      padding: 10px;
+      background: #f7f7f8;
+      border-radius: 9px;
+      font-size: 12px;
+      word-break: break-all;
+      margin-top: 15px;
+    }
+
+    .item {
+      border: 1px solid #e5e7eb;
+      border-radius: 13px;
+      padding: 15px;
+      margin-top: 12px;
+    }
+
+    .item strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .row input {
+      flex: 1;
+    }
+
+    .empty {
+      color: #777;
+      text-align: center;
+      padding: 30px 0;
+    }
+
+    .ok {
+      color: #16713b;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo">QRMenu</div>
+    <div class="badge">QR dinamici</div>
+  </header>
+
+  <div class="grid">
+
+    <section class="card">
+
+      <h1>Crea un QR dinamico</h1>
+
+      <p>
+        Il QR rimane uguale.
+        Puoi cambiare la destinazione in qualsiasi momento.
+      </p>
+
+      <label>Nome QR</label>
+
+      <input
+        id="name"
+        placeholder="Es. Pizzeria Mario"
+      >
+
+      <label>Link iniziale</label>
+
+      <input
+        id="targetUrl"
+        placeholder="https://esempio.it/menu"
+      >
+
+      <button
+        class="primary"
+        onclick="createQR()"
+      >
+        Genera QR
+      </button>
+
+      <div id="message"></div>
+
+    </section>
+
+
+    <section class="card qrbox">
+
+      <h2 id="previewTitle">
+        Il tuo QR apparirà qui
+      </h2>
+
+      <div id="qrcode"></div>
+
+      <div
+        id="dynamicUrl"
+        class="url"
+        style="display:none"
+      ></div>
+
+      <button
+        id="downloadBtn"
+        class="secondary"
+        style="display:none; margin-top:12px"
+        onclick="downloadQR()"
+      >
+        Scarica PNG
+      </button>
+
+    </section>
+
+  </div>
+
+
+  <section
+    class="card"
+    style="margin-top:20px"
+  >
+
+    <h2>I tuoi QR</h2>
+
+    <div id="list"></div>
+
+  </section>
+
+</div>
+
+
+<script>
+
+let currentQR = null;
+
+
+/* CREA QR */
+
+async function createQR() {
+
+  const name =
+    document.getElementById("name").value.trim();
+
+  const targetUrl =
+    document.getElementById("targetUrl").value.trim();
+
+  const message =
+    document.getElementById("message");
+
+  message.textContent = "";
+
+
+  try {
+
+    const response = await fetch("/api/qrs", {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+        name,
+        targetUrl
+      })
+
+    });
+
+
+    const data = await response.json();
+
+
+    if (!response.ok) {
+
+      message.innerHTML =
+        '<div style="color:#b42318;margin-top:10px">' +
+        data.error +
+        '</div>';
+
+      return;
+
+    }
+
+
+    currentQR = data;
+
+    renderQR(data);
+
+
+    message.innerHTML =
+      '<div class="ok">' +
+      'QR creato correttamente.' +
+      '</div>';
+
+
+    loadQrs();
+
+  }
+
+  catch (error) {
+
+    message.innerHTML =
+      '<div style="color:#b42318;margin-top:10px">' +
+      'Errore di connessione al server.' +
+      '</div>';
+
+  }
+
+}
+
+
+/* MOSTRA QR */
+
+function renderQR(qr) {
+
+  const container =
+    document.getElementById("qrcode");
+
+  container.innerHTML = "";
+
+
+  const dynamicUrl =
+    window.location.origin +
+    "/q/" +
+    qr.id;
+
+
+  new QRCode(container, {
+
+    text: dynamicUrl,
+
+    width: 240,
+
+    height: 240,
+
+    correctLevel:
+      QRCode.CorrectLevel.H
+
+  });
+
+
+  document.getElementById(
+    "previewTitle"
+  ).textContent = qr.name;
+
+
+  const urlBox =
+    document.getElementById("dynamicUrl");
+
+  urlBox.style.display = "block";
+
+  urlBox.textContent = dynamicUrl;
+
+
+  document.getElementById(
+    "downloadBtn"
+  ).style.display = "block";
+
+}
+
+
+/* DOWNLOAD */
+
+function downloadQR() {
+
+  const img =
+    document.querySelector("#qrcode img");
+
+  if (!img) return;
+
+
+  const a =
+    document.createElement("a");
+
+  a.href = img.src;
+
+  a.download =
+    (currentQR?.name || "qrmenu") +
+    ".png";
+
+  a.click();
+
+}
+
+
+/* CARICA QR */
+
+async function loadQrs() {
+
+  try {
+
+    const response =
+      await fetch("/api/qrs");
+
+    const qrs =
+      await response.json();
+
+
+    const list =
+      document.getElementById("list");
+
+
+    if (!qrs.length) {
+
+      list.innerHTML =
+        '<div class="empty">' +
+        'Nessun QR creato.' +
+        '</div>';
+
+      return;
+
+    }
+
+
+    list.innerHTML =
+      qrs.map(qr => `
+
+        <div class="item">
+
+          <strong>
+            ${escapeHtml(qr.name)}
+          </strong>
+
+          <div
+            style="font-size:12px;color:#777"
+          >
+            QR:
+            ${location.origin}/q/${qr.id}
+          </div>
+
+
+          <div class="row">
+
+            <input
+              id="url-${qr.id}"
+              value="${escapeAttr(qr.targetUrl)}"
+            >
+
+
+            <button
+              class="secondary"
+              onclick="updateQR('${qr.id}')"
+            >
+              Cambia link
+            </button>
+
+          </div>
+
+        </div>
+
+      `).join("");
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+  }
+
+}
+
+
+/* CAMBIA LINK */
+
+async function updateQR(id) {
+
+  const input =
+    document.getElementById(
+      "url-" + id
+    );
+
+
+  const targetUrl =
+    input.value.trim();
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/qrs/" + id,
+        {
+
+          method: "PATCH",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            targetUrl
+          })
+
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      alert(data.error);
+
+      return;
+
+    }
+
+
+    currentQR = data;
+
+    renderQR(data);
+
+
+    alert(
+      "Link aggiornato! Il QR non è cambiato."
+    );
+
+
+    loadQrs();
+
+  }
+
+  catch (error) {
+
+    alert(
+      "Errore di connessione al server."
+    );
+
+  }
+
+}
+
+
+/* SICUREZZA TESTO */
+
+function escapeHtml(value) {
+
+  return value.replace(
+    /[&<>"']/g,
+
+    c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[c])
+
+  );
+
+}
+
+
+function escapeAttr(value) {
+
+  return value.replace(
+    /"/g,
+    '&quot;'
+  );
+
+}
+
+
+/* AVVIO */
+
+loadQrs();
+
+</script>
+
+</body>
+</html>
