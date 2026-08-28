@@ -1,87 +1,230 @@
 const express = require("express");
-const path = require("path");
 const crypto = require("crypto");
 
 const app = express();
 
 app.use(express.json());
 
-let qrs = [];
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
+
+async function supabaseRequest(endpoint, options = {}) {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${endpoint}`,
+    {
+      ...options,
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+        ...(options.headers || {})
+      }
+    }
+  );
+
+  const text = await response.text();
+
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data === "string"
+        ? data
+        : JSON.stringify(data)
+    );
+  }
+
+  return data;
+}
 
 function validUrl(value) {
   try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
+    const url = new URL(value);
+
+    return (
+      url.protocol === "http:" ||
+      url.protocol === "https:"
+    );
   } catch {
     return false;
   }
 }
 
-// Homepage
+
+/* HOMEPAGE */
+
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  res.sendFile(
+    require("path").join(
+      process.cwd(),
+      "public",
+      "index.html"
+    )
+  );
 });
 
-// Create QR
-app.post("/api/qrs", (req, res) => {
-  const { name, targetUrl } = req.body;
 
-  if (!name || !targetUrl || !validUrl(targetUrl)) {
-    return res.status(400).json({
-      error: "Inserisci un nome e un URL valido (http/https)."
+/* CREA QR */
+
+app.post("/api/qrs", async (req, res) => {
+
+  try {
+
+    const { name, targetUrl } = req.body;
+
+    if (
+      !name ||
+      !targetUrl ||
+      !validUrl(targetUrl)
+    ) {
+      return res.status(400).json({
+        error:
+          "Inserisci un nome e un URL valido."
+      });
+    }
+
+    const qr = {
+      id: crypto.randomUUID(),
+      name: String(name).trim(),
+      target_url: String(targetUrl).trim()
+    };
+
+    const result = await supabaseRequest(
+      "qrs",
+      {
+        method: "POST",
+        body: JSON.stringify(qr)
+      }
+    );
+
+    res.json(result[0]);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "Errore durante la creazione del QR."
     });
+
   }
 
-  const qr = {
-    id: crypto.randomBytes(6).toString("hex"),
-    name: String(name).trim(),
-    targetUrl: String(targetUrl).trim(),
-    createdAt: new Date().toISOString()
-  };
-
-  qrs.push(qr);
-
-  res.json(qr);
 });
 
-// List QR
-app.get("/api/qrs", (req, res) => {
-  res.json(qrs);
-});
 
-// Change destination
-app.patch("/api/qrs/:id", (req, res) => {
-  const { targetUrl } = req.body;
+/* LISTA QR */
 
-  if (!targetUrl || !validUrl(targetUrl)) {
-    return res.status(400).json({
-      error: "URL non valido."
+app.get("/api/qrs", async (req, res) => {
+
+  try {
+
+    const result =
+      await supabaseRequest(
+        "qrs?select=*&order=created_at.desc"
+      );
+
+    res.json(result);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "Errore durante il caricamento dei QR."
     });
+
   }
 
-  const qr = qrs.find(q => q.id === req.params.id);
+});
 
-  if (!qr) {
-    return res.status(404).json({
-      error: "QR non trovato."
+
+/* CAMBIA LINK */
+
+app.patch("/api/qrs/:id", async (req, res) => {
+
+  try {
+
+    const { targetUrl } = req.body;
+
+    if (
+      !targetUrl ||
+      !validUrl(targetUrl)
+    ) {
+      return res.status(400).json({
+        error: "URL non valido."
+      });
+    }
+
+    const result =
+      await supabaseRequest(
+        `qrs?id=eq.${encodeURIComponent(req.params.id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            target_url: String(targetUrl).trim(),
+            updated_at: new Date().toISOString()
+          })
+        }
+      );
+
+    if (!result.length) {
+      return res.status(404).json({
+        error: "QR non trovato."
+      });
+    }
+
+    res.json(result[0]);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "Errore durante l'aggiornamento."
     });
+
   }
 
-  qr.targetUrl = String(targetUrl).trim();
-  qr.updatedAt = new Date().toISOString();
-
-  res.json(qr);
 });
 
-// Dynamic QR redirect
-app.get("/q/:id", (req, res) => {
-  const qr = qrs.find(q => q.id === req.params.id);
 
-  if (!qr) {
-    return res.status(404).send("QR non trovato.");
+/* QR DINAMICO */
+
+app.get("/q/:id", async (req, res) => {
+
+  try {
+
+    const result =
+      await supabaseRequest(
+        `qrs?id=eq.${encodeURIComponent(req.params.id)}&select=target_url`
+      );
+
+    if (!result.length) {
+      return res.status(404).send(
+        "QR non trovato."
+      );
+    }
+
+    res.redirect(result[0].target_url);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).send(
+      "Errore del server."
+    );
+
   }
 
-  res.redirect(qr.targetUrl);
 });
+
 
 module.exports = app;
