@@ -424,16 +424,11 @@ async function loadQrs() {
 
   try {
 
-    const response =
-      await fetch("/api/qrs");
+    const response = await fetch("/api/qrs");
 
-    const qrs =
-      await response.json();
+    const qrs = await response.json();
 
-
-    const list =
-      document.getElementById("list");
-
+    const list = document.getElementById("list");
 
     if (!qrs.length) {
 
@@ -443,53 +438,49 @@ async function loadQrs() {
         '</div>';
 
       return;
-
     }
 
+    list.innerHTML = qrs.map(qr => `
 
-    list.innerHTML =
-      qrs.map(qr => `
+      <div class="item">
 
-        <div class="item">
+        <strong>
+          ${escapeHtml(qr.name)}
+        </strong>
 
-          <strong>
-            ${escapeHtml(qr.name)}
-          </strong>
+        <div style="font-size:12px;color:#777">
+          QR:
+          ${location.origin}/q/${qr.id}
+        </div>
 
-          <div
-            style="font-size:12px;color:#777"
+        <div class="row">
+
+          <input
+            id="url-${qr.id}"
+            value="${escapeAttr(qr.target_url)}"
           >
-            QR:
-            ${location.origin}/q/${qr.id}
-          </div>
 
-
-          <div class="row">
-
-            <input
-              id="url-${qr.id}"
-              value="${escapeAttr(qr.targetUrl)}"
-            >
-
-
-            <button
-              class="secondary"
-              onclick="updateQR('${qr.id}')"
-            >
-              Cambia link
-            </button>
-
-          </div>
+          <button
+            class="secondary"
+            onclick="updateQR('${qr.id}')"
+          >
+            Cambia link
+          </button>
 
         </div>
 
-      `).join("");
+      </div>
 
-  }
+    `).join("");
 
-  catch (error) {
+  } catch (error) {
 
     console.error(error);
+
+    document.getElementById("list").innerHTML =
+      '<div style="color:#b42318">' +
+      'Errore nel caricamento dei QR.' +
+      '</div>';
 
   }
 
