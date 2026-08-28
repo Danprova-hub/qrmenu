@@ -13,13 +13,12 @@ async function supabaseRequest(endpoint, options = {}) {
     `${SUPABASE_URL}/rest/v1/${endpoint}`,
     {
       ...options,
-      headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-        ...(options.headers || {})
-      }
+    headers: {
+  "apikey": SUPABASE_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "return=representation",
+  ...(options.headers || {})
+}
     }
   );
 
